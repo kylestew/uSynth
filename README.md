@@ -1,0 +1,3 @@
+# uSynth
+
+Embedded synth engine
