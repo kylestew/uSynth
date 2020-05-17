@@ -3,9 +3,18 @@
 #include <iostream>
 
 
+int saw(void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
+        double streamTime, RtAudioStreamStatus status, void *userData) {
+
+    // TODO:....
+
+    return 0;
+}
+
+
 int main() {
     RtAudio dac;
-    if (dac.getDeviceCount() > 1) {
+    if (dac.getDeviceCount() < 1) {
         std::cout << "\nNo audio devices found!\n";
         exit(0);
     }
@@ -19,7 +28,12 @@ int main() {
     double data[2];
 
     try {
-        dac.openStream(&params, NULL_ RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &saw, (void*)&data);
+        dac.openStream(&params, NULL, RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &saw, (void*)&data);
+        dac.startStream();
+    } catch (RtAudioError &e) {
+        e.printMessage();
+        exit(0);
+    }
 
 
 
