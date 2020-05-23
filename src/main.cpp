@@ -1,21 +1,24 @@
 #include "rtaudio/RtAudio.h"
 #include <cstdlib>
 #include <cmath>
-#include <iostream>
-#include <vector>
 
 
+const int gWavetableLength = 512;
+float gWavetable[gWavetableLength];
+float gReadPointer = 0.0;
+
+float gAmplitude = 0.333;
 float gFrequency = 220.0;
-float gAmplitude = 0.6;
-float gDuration = 5.0;
-int gNumSamples = 0;
-std::vector<float> gSampleData;
 
 
-void calculate_sine(float *buffer, int numSamples, float sampleRate) {
-    for (int n = 0; n < numSamples; n++) {
-        float out = gAmplitude * sin(2.0 * M_PI * n * gFrequency / sampleRate);
-        buffer[n] = out;
+void create_tri_wavetable(float *wavetable, int length) {
+    // first half of wavetable: -1 to 1
+    for (unsigned int n = 0; n < length/2; n++) {
+        wavetable[n] = -1.0 + 4.0 * (float)n / (float)length;
+    }
+    // end of wavetable: 1 to -1
+    for (unsigned int n = length/2; n < length; n++) {
+        wavetable[n] = 1.0 - 4.0 * (float)(n - length/2) / (float)length;
     }
 }
 
@@ -26,17 +29,18 @@ int render(void *outputBuffer, void *inputBuffer, unsigned int nBufferFrames,
     unsigned int i, j;
     double *buffer = (double *)outputBuffer;
 
-    int idx = *(int *)userData;
     for (i = 0; i < nBufferFrames; i++) {
-        for (j = 0; j < 2; j++) {
-            *buffer++ = gSampleData[idx];
-        }
-        idx++;
-        if (idx >= gSampleData.size())
-            idx = 0;
-    }
+        float out = gAmplitude * gWavetable[(int)gReadPointer];
 
-    *(int *)userData = idx;
+        // increment read pointer according to frequency
+        gReadPointer += gWavetableLength * gFrequency / 44100.0;
+        while (gReadPointer >= gWavetableLength)
+            gReadPointer -= gWavetableLength;
+
+        for (j = 0; j < 2; j++) {
+            *buffer++ = out;
+        }
+    }
 
     return 0;
 }
@@ -57,12 +61,8 @@ int main() {
     unsigned int bufferFrames = 256;
     int tableIndex;
 
-
-    // pre-calc sine data - enough for one cycle
-    gNumSamples = static_cast<int>(sampleRate / gFrequency);
-    gSampleData.resize(gNumSamples);
-    calculate_sine(gSampleData.data(), gNumSamples, sampleRate);
-
+    // generate wavetable
+    create_tri_wavetable(gWavetable, gWavetableLength);
 
     try {
         dac.openStream(&params, NULL, RTAUDIO_FLOAT64, sampleRate, &bufferFrames, &render, (void*)&tableIndex);
